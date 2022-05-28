@@ -1,0 +1,14 @@
+{
+  "name": "nano-factory",
+  "version": "0.1.0",
+  "title": "Nano Factory",
+  "author": "Me",
+  "factorio_version": "1.1.59",
+  "dependencies": [
+	  "base >= 1.1.59",
+	  "space-exploration >= 0.2.1",
+	  "Krastorio2 >= 1.2.25",
+	  "fcpu >= 0.4.14"
+  ],
+  "description": "Adds a compact nano factory (formerly sams club which took up half the base.)"
+}
