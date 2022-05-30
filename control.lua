@@ -1,38 +1,67 @@
 --TODO: Clear all log statements
---TODO: Add death statements and robot build statements
-local function on_built(entity)
-	local chest_loc = {entity.position.x - 2, entity.position.y}
-	log(tostring(chest_loc))
-	log("creating chest")
+--TODO: Add death statements and robot build statements and other event statements
+local function on_built(entity) 
+	local in_comb_loc = {entity.position.x - 10, entity.position.y - 9}
 	entity.surface.create_entity({
-		name = "steel-chest",
-		position = chest_loc,
+		name = "nf-combinator",
+		position = in_comb_loc,
 		force = entity.force,
-		type = "container"
+		type = "constant-combinator"
 	})
+	local in_comb = entity.surface.find_entity("nf-combinator", in_comb_loc)
+	in_comb.operable = false
+
+	local out_curr_rec_comb_loc = {entity.position.x + 10, entity.position.y - 9}
+	local out_total_comb_loc = {entity.position.x + 10, entity.position.y - 8}
+
+	entity.surface.create_entity({
+		name = "nf-combinator",
+		position = out_curr_rec_comb_loc,
+		force = entity.force,
+		type = "constant-combinator"
+	})
+	
+	entity.surface.create_entity({
+		name = "nf-combinator",
+		position = out_total_comb_loc,
+		force = entity.force,
+		type = "constant-combinator"
+	})
+
+	local out_curr_rec_comb = entity.surface.find_entity("nf-combinator", out_curr_rec_comb_loc)
+	local out_total_comb_loc = entity.surface.find_entity("nf-combinator", out_total_comb_loc)
+	out_curr_rec_comb.operable = false
+	out_total_comb_loc.operable = false
+
 end
 
-local function get_chest(nf)
-	local chst = nf.surface.find_entity("steel-chest", {nf.position.x-2, nf.position.y})
-	return chst 
+local function get_combs(nf)
+	local in_comb = nf.surface.find_entity("nf-combinator", {nf.position.x-10, nf.position.y-9}) 
+	local out_curr_rec_comb = nf.surface.find_entity("nf-combinator", {nf.position.x + 10, nf.position.y - 9})
+	local out_total_comb = nf.surface.find_entity("nf-combinator", {nf.position.x + 10, nf.position.y - 8})
+	return {in_comb = in_comb, out_curr_rec_comb = out_curr_rec_comb, out_total_comb = out_total_comb}
 end
+
 
 local function on_gui_closed(entity)
 	if entity.name == "nf-entity" then
 		rec = entity.get_recipe()
 		if rec ~= nil then
-			local chst = get_chest(entity)
+			local combs = get_combs(entity)
+			out_rec_ccb = combs["out_curr_rec_comb"].get_or_create_control_behavior()
+			out_rec_ccb.enabled = false
+			local ind = 1
 			for _, ingredient in pairs(rec.ingredients) do
-				log("checking ingredients")
-				log(ingredient)
-				log(ingredient.name)
-				log(ingredient.amount)
-				log(ingredient.name)
-				chst.get_output_inventory().insert({
-					name = ingredient.name,
-					count = ingredient.amount
-				})		
+				out_rec_ccb.set_signal(
+					ind,
+					{
+						signal = {type = "item", name = ingredient.name},
+						count = ingredient.amount
+					}
+				)
+				ind = ind + 1
 			end
+			out_rec_ccb.enabled = true
 
 		end
 	end
