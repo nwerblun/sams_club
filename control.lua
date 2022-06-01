@@ -2,18 +2,29 @@
 --TODO: Add death statements and robot build statements and other event statements
 local function on_built(entity, player_index) 
 	--create global flags. One for crafting, one for goal recipe
-	local in_comb_loc = {entity.position.x - 9, entity.position.y - 8}
-	entity.surface.create_entity({
+	global["nf_info"] = {
+		crafting = false,
+		goal_recipe = nil
+	}
+
+	local in_comb_loc = {entity.position.x - 10, entity.position.y - 8}
+	local in_comb = entity.surface.create_entity({
 		name = "nf-input-combinator",
 		position = in_comb_loc,
 		force = entity.force,
 	})
-	local in_comb = entity.surface.find_entity("nf-input-combinator", in_comb_loc)
 	in_comb.operable = false
 
-	local chest_loc = {entity.position.x, entity.position.y + 10.9}
-	local loader_loc = {entity.position.x, entity.position.y + 11.3}
-	local belt_loc = {entity.position.x + 0.25, entity.position.y + 11.5}
+	local rec_comb_loc = {entity.position.x - 10, entity.position.y - 5}
+	local rec_comb = entity.surface.create_entity({
+		name = "nf-input-combinator",
+		position = rec_comb_loc,
+		force = entity.force,
+	})
+
+	local chest_loc = {entity.position.x - 0.5, entity.position.y + 9.8}
+	local loader_loc = {entity.position.x - 0.5 , entity.position.y + 10}
+	local belt_loc = {entity.position.x - 0.25, entity.position.y + 11}
 
 	local loader = entity.surface.create_entity({
 		name="nf-fast-inserter",
@@ -29,7 +40,7 @@ local function on_built(entity, player_index)
 	})
 	
 	local belt = entity.surface.create_entity({
-		name = "ultimate-belt",
+		name = "nf-belt",
 		force = entity.force,
 		position = belt_loc,
 		direction = defines.direction.south
@@ -37,17 +48,20 @@ local function on_built(entity, player_index)
 	})
 	belt.rotatable = false
 	belt.operable = false
-	chest.get_output_inventory().insert({name="iron-plate", count=50})
+
+	global["nf_info"]["rec_comb"] = rec_comb
+	global["nf_info"]["in_comb"] = in_comb
+	global["nf_info"]["output_chest"] = chest
+	global["nf_info"]["output_loader"] = loader
 end
 
-local function get_combs(nf)
-	local in_comb = nf.surface.find_entity("nf-combinator", {nf.position.x-10, nf.position.y-9}) 
-	return {in_comb = in_comb}
-end
 
+local function get_all_inputs(comb) 
+	if comb == nil then 
+		return
+	end
 
-local function get_all_inputs(in_comb) 
-	ccb = in_comb.get_or_create_control_behavior()
+	ccb = comb.get_or_create_control_behavior()
 	cn_red = ccb.get_circuit_network(defines.wire_type.red, defines.circuit_connector_id.constant_combinator)
 	cn_green = ccb.get_circuit_network(defines.wire_type.green, defines.circuit_connector_id.constant_combinator)
 	local everything = {}
@@ -88,10 +102,6 @@ local function clear_signals(ccb)
 	end
 end
 
-local function on_gui_closed(entity)
-end
-
-
 local function every_n_ticks()
 --if goal recipe == nil and crafting = 1
 ----clear recipe on crafter
@@ -108,8 +118,24 @@ local function every_n_ticks()
 --else if crafting flag == 1 and goal recipe ~= nil and crafting progress == 1
 ----flush inventory to internal chests 
 ----pop top, do we have it? do same thing as previous section
+	if global["nf_info"] == nil then
+		return
+	end
 
+	local recp = global["nf_info"]["rec_comb"].get_or_create_control_behavior().get_signal(1)
+	if recp["signal"] ~= nil and recp["signal"]["type"] == "item" then
+		global["nf_info"]["goal_recipe"] = {recp["signal"]["name"], recp["count"]}
+	end
+
+	if global["nf_info"]["goal_recipe"] == nil then
+		log("goal is nil")
+	elseif global["nf_info"]["goal_recipe"] ~= nil and global["nf_info"]["crafting"] == false then
+		log("goal not nil, crafting 0")
+	else
+		log("goal not nil, crafting 1")
+	end
 end
+
 script.on_event(defines.events.on_built_entity, 
 	function(event)
 		if event.created_entity.name == "nf-assembler" then
@@ -118,12 +144,8 @@ script.on_event(defines.events.on_built_entity,
 	end
 )
 
-
-script.on_event(defines.events.on_gui_closed, 
-	function(event)
-		if event.entity ~= nil and event.entity.name == "nf-entity" then
-			on_gui_closed(event.entity)
-		end
-
+script.on_nth_tick(10, 
+	function(nth_tick_event_data)
+		every_n_ticks()
 	end
 )

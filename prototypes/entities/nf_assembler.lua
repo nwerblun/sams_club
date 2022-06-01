@@ -25,8 +25,8 @@ nano_factory_entity.energy_usage = tostring(settings.startup["nf-power-usage"].v
 for _, l in pairs(nano_factory_entity.animation["layers"]) do
 	l["scale"] = 4
 	l["hr_version"]["scale"] = 4
-	l["shift"] = {0.5, l["shift"][2]*4}
-	l["hr_version"]["shift"] = {0.5, l["shift"][2]*4}
+	l["shift"] = {-0.5, l["shift"][2]*4}
+	l["hr_version"]["shift"] = {-0.5, l["shift"][2]*4}
 	if l["draw_as_shadow"] == nil or l["draw_as_shadow"] == false then
 		l["hr_version"]["filename"] = "__nano-factory__/graphics/nf_assembler/hr-assembling-machine-3.png"
 		l["filename"] = "__nano-factory__/graphics/nf_assembler/assembling-machine-3.png"
@@ -34,25 +34,25 @@ for _, l in pairs(nano_factory_entity.animation["layers"]) do
 end
 --increase drawing box along with scale
 nano_factory_entity.drawing_box = {
-	{-10,-10},
-	{10,10}
+	{-10,-11},
+	{10,9}
 }
 nano_factory_entity.collision_box = {
-	{-10,-10},
-	{10,10}
+	{-10,-11},
+	{10, 9}
 }
 nano_factory_entity.selection_box = {
-	{-10,-9.5},
-	{10,10}
+	{-10,-11},
+	{10,9}
 }
 --adjust pipe locations to match new bounding boxes
 for _,b in pairs(nano_factory_entity.fluid_boxes) do
 	if type(b) ~= "boolean" then
 		b["base_area"] = 100
-		local shft = 1; if b["production_type"] == "input" then shft = -1 end
+		local shft = 9.5; if b["production_type"] == "input" then shft = -11.5 end
 		for _,c in pairs(b["pipe_connections"]) do
 			--for some reason it's off aligned if x = 0, so shift it by 0.5 (the pipe size)
-			c["position"] = {0.5, shft*10.5}
+			c["position"] = {0.5, shft}
 		end
 	end
 

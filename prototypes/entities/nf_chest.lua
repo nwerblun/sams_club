@@ -1,6 +1,8 @@
 local chest = table.deepcopy(data.raw["container"]["steel-chest"])
 local NOTHING_PICTURE = "__nano-factory__/graphics/nf_nothing.png"
 chest.name = "nf-chest"
+chest.minable = nil
+chest.inventory_size = 120
 chest.flags = {
 	"placeable-off-grid",
 	"hide-alt-info",
