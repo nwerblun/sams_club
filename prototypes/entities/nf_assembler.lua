@@ -58,5 +58,6 @@ for _,b in pairs(nano_factory_entity.fluid_boxes) do
 
 end
 nano_factory_entity.selection_priority = 40
+nano_factory_entity.energy_source = {type = "void"}
 table.insert(nano_factory_entity.flags, "not-rotatable")
 data:extend({nano_factory_entity})

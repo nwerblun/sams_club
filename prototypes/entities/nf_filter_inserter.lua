@@ -2,13 +2,11 @@
 --TODO: don't display grab locations
 --TODO: Make the box not selectable
 local NOTHING_PICTURE = "__nano-factory__/graphics/nf_nothing.png"
-local nf_inserter = table.deepcopy(data.raw["inserter"]["fast-inserter"])
-nf_inserter.name = "nf-fast-inserter"
+local nf_inserter = table.deepcopy(data.raw["inserter"]["filter-inserter"])
+nf_inserter.name = "nf-filter-inserter"
 nf_inserter.rotation_speed = 1.0
-nf_inserter.pickup_location = {0, 0.2}
 nf_inserter.flags =  {
 	"placeable-off-grid",
-	"not-rotatable",
 	"placeable-player",
 	"not-blueprintable",
 	"hidden",
@@ -133,5 +131,5 @@ nf_inserter.platform_picture = {
 }
 nf_inserter.draw_held_item = false
 nf_inserter.use_easter_egg = false
-nf_inserter.draw_inserter_arrow = false
+--nf_inserter.draw_inserter_arrow = false
 data:extend({nf_inserter})
