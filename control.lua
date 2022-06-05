@@ -7,25 +7,25 @@ local function on_built(entity, player_index)
 		goal_recipe = nil,
 		current_recipe_goal = {},
 		main_assembler = entity,
-		banned_categories = {
-			"centrifuging",
-			"chemistry",
-			"oil-processing",
-			"smelting",
-			"big-smelting",
-			"growing"
+		allowed_categories = {
+			"advanced-crafting",
+			"basic-crafting",
+			"crafting",
+			"crafting-with-fluid",
+			"rocket-building"
 		},
 		banned_items = {
 			"wood"
 		}
 	}
-
+	--[[
 	local recipe_getter = entity.surface.create_entity({
 		name = "nf-recipe-getter-assembler",
 		position = entity.position,
 		force = entity.force
 	})
 	recipe_getter.operable = false
+	--]]
 	local in_comb_loc = {entity.position.x - 10, entity.position.y - 8}
 	local in_comb = entity.surface.create_entity({
 		name = "nf-input-combinator",
@@ -62,8 +62,8 @@ local function on_built(entity, player_index)
 		raise_built = true,
 		direction = defines.direction.south
 	})
-	refund_loader.operable = false
-	refund_loader.rotatable = false
+	refund_loader.operable = true
+	refund_loader.rotatable = true
 	refund_loader.inserter_filter_mode = "whitelist"
 
 	local loader = entity.surface.create_entity({
@@ -126,7 +126,7 @@ local function on_built(entity, player_index)
 			name = "signal-each"
 		}	
 	}
-	global["nf_info"]["recipe_getter"] = recipe_getter
+	--global["nf_info"]["recipe_getter"] = recipe_getter
 	global["nf_info"]["rec_comb"] = rec_comb
 	global["nf_info"]["in_comb"] = in_comb
 	global["nf_info"]["output_chest"] = chest
@@ -192,7 +192,7 @@ end
 
 
 local function clear_signals(ccb)
-	for i=1, table.getn(ccb.signals_count) do
+	for i=1, ccb.signals_count do
 		ccb.set_signal(i, nil)
 	end
 end
@@ -216,25 +216,56 @@ end
 
 local function get_recipe_tree(root_item_name, count)
 	local recipe_tree_table = {}
-	if contains(global["nf_info"]["banned_items"], root_item_name) then return {} end
-	--this is necessary to get the sub components. Creating a recipe object is tough, so use a crafter to do it for us. Setting a recipe only requires a name.
-	global["nf_info"]["recipe_getter"].set_recipe(root_item_name)
-	local recipe = global["nf_info"]["recipe_getter"].get_recipe()
-	if recipe ~= nil and recipe.category ~= nil and not contains(global["nf_info"]["banned_categories"], recipe.category) then
+	log("adding "..tostring(root_item_name).."x"..tostring(count).." to tree")
+	
+	--special case because it can't be made in an assembler. 
+	if game.item_prototypes[root_item_name].subgroup.name == "raw-resource" then
+		table.insert(recipe_tree_table, {
+		name = root_item_name,
+		count = count
+		})
+		return recipe_tree_table
+	end
+	
+	local recipe = game.recipe_prototypes[root_item_name]
+	if recipe ~= nil and recipe.category ~= nil and contains(global["nf_info"]["allowed_categories"], recipe.category) then
 		table.insert(recipe_tree_table, {
 			name = root_item_name,
 			count = count
 		})
-		--TODO: enable this later. See if it breaks anything.
-		--global["nf_info"]["recipe_getter"].set_recipe(nil)
 		for _, ingr in pairs(recipe.ingredients) do
-			recipe_tree_table = concat_tables(recipe_tree_table, get_recipe_tree(ingr.name, count * ingr.amount))
+		
+			local diff = count - global["nf_info"]["in_comb"].get_or_create_control_behavior().get_circuit_network(defines.wire_type.red, defines.circuit_connector_id.combinator_output).get_signal({type = "item", name = ingr.name})
+			if diff > 0 then
+				recipe_tree_table = concat_tables(recipe_tree_table, get_recipe_tree(ingr.name, diff * ingr.amount))
+			end
+		
+		
 		end
 		return recipe_tree_table
 	else
 		return {}
 	end
 	
+end
+
+local function prune_tree(tree)
+	local copy = deepcopy(tree)
+	for ind, item in pairs(copy) do
+		log("pruning "..tostring(ind)..": "..tostring(item.name))
+		if game.item_prototypes[item.name].subgroup.name == "raw-resource" then
+			table.remove(copy, ind)
+		end
+	end
+	return copy
+end
+
+local function clean_up()
+	global["nf_info"]["goal_recipe"] = nil
+	global["nf_info"]["current_recipe_goal"] = nil
+	global["nf_info"]["crafting"] = false
+	clear_signals(global["nf_info"]["rec_comb"].get_or_create_control_behavior())
+	clear_signals(global["nf_info"]["out_comb"].get_or_create_control_behavior())
 end
 
 local function every_n_ticks()
@@ -250,6 +281,7 @@ local function every_n_ticks()
 	end
 
 	if global["nf_info"]["goal_recipe"] == nil then
+		clean_up()
 		local spilled_items = global["nf_info"]["main_assembler"].set_recipe(nil)
 		for item_name, item_count in pairs(spilled_items) do
 			global["nf_info"]["output_chest"].get_output_inventory().insert({name = item_name, count = item_count})
@@ -257,20 +289,17 @@ local function every_n_ticks()
 		global["nf_info"]["crafting"] = false
 	elseif global["nf_info"]["goal_recipe"] ~= nil and global["nf_info"]["crafting"] == false then
 		global["nf_info"]["crafting"] = true
-		global["nf_info"]["recipe_tree"] = get_recipe_tree(global["nf_info"]["goal_recipe"].name, global["nf_info"]["goal_recipe"].count)
+		local recipe_tree = get_recipe_tree(global["nf_info"]["goal_recipe"].name, global["nf_info"]["goal_recipe"].count)
+		global["nf_info"]["recipe_tree"] = prune_tree(recipe_tree)
 		local next_recipe = table.remove(global["nf_info"]["recipe_tree"])
 		global["nf_info"]["main_assembler"].set_recipe(next_recipe.name)
 		global["nf_info"]["current_recipe_goal"] = deepcopy(next_recipe)
-		log("crafting is now true. Current recipe goal is "..next_recipe.name)
 	elseif global["nf_info"]["goal_recipe"] ~= nil and global["nf_info"]["crafting"] == true then
-		log("crafting is true")
 		local curr_recipe = global["nf_info"]["main_assembler"].get_recipe()
 		log("current goal step is "..global["nf_info"]["current_recipe_goal"].name)
-		--we don't already have enough of the current goal item, need to craft more. If we have enough, we already removed it so next tick we will move on.
-		if global["nf_info"]["in_comb"].get_or_create_control_behavior().get_circuit_network(defines.wire_type.red, defines.circuit_connector_id.combinator_output).get_signal({type = "item", name = global["nf_info"]["current_recipe_goal"].name}) - global["nf_info"]["current_recipe_goal"].count < 0 then
-			log("we don't have enough of the item, let's see if it's banned.")
-			if not contains(global["nf_info"]["banned_categories"], curr_recipe.category) then
-				log("item is not a banned item")
+		--we don't already have enough of the current goal item, need to craft more. If we have enough, we already removed it so next tick we will move on. If the current step is the final goal, make it true
+		if global["nf_info"]["in_comb"].get_or_create_control_behavior().get_circuit_network(defines.wire_type.red, defines.circuit_connector_id.combinator_output).get_signal({type = "item", name = global["nf_info"]["current_recipe_goal"].name}) - global["nf_info"]["current_recipe_goal"].count < 0 or global["nf_info"]["current_recipe_goal"].name == global["nf_info"]["goal_recipe"].name then
+			if contains(global["nf_info"]["allowed_categories"], curr_recipe.category) then
 				for ind, ingr in pairs(curr_recipe.ingredients) do
 					--set filter inserters to on, internal first
 					global["nf_info"]["internal_loader"].set_filter(ind, ingr.name)
@@ -279,21 +308,30 @@ local function every_n_ticks()
 				end
 			end
 		end
-		log("crafting progress "..tostring(global["nf_info"]["main_assembler"].crafting_progress))
 		--crafting progress is unreliable since every time one finishes it goes back to 0. If you don't catch it on the right tick you will make too many. Instead check if we've made one yet.
 		if global["nf_info"]["main_assembler"].get_output_inventory().get_item_count(global["nf_info"]["current_recipe_goal"].name) >= global["nf_info"]["current_recipe_goal"].count then
-			log("crafting is done. Moving on")
+			if global["nf_info"]["current_recipe_goal"].name == global["nf_info"]["goal_recipe"].name then
+				clean_up()
+				return
+			end
 			local next_goal = table.remove(global["nf_info"]["recipe_tree"])
+			log("next goal is "..tostring(next_goal))
 			if next_goal ~= nil then
 				global["nf_info"]["current_recipe_goal"] = deepcopy(next_goal)
 				log("next goal is "..next_goal.name)
+				local inserter_items = global["nf_info"]["internal_loader"].held_stack
+				if inserter_items ~= nil and inserter_items.valid_for_read then
+					log(inserter_items)
+					log(inserter_items.name)
+					global["nf_info"]["output_chest"].get_output_inventory().insert({name = inserter_items.name, count = inserter_items.count})
+					inserter_items.clear()
+				end
 				local spilled_items = global["nf_info"]["main_assembler"].set_recipe(next_goal.name)
 				for item_name, item_count in pairs(spilled_items) do
 					global["nf_info"]["output_chest"].get_output_inventory().insert({name = item_name, count = item_count})
 				end
 			end
 		end
-
 	end
 end
 
