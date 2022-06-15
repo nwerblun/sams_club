@@ -1,6 +1,6 @@
 --TODO: Clear all log statements
 --TODO: Add death statements and robot build statements and other event statements
-local function on_built(entity, player_index) 
+local function on_built(entity) 
 	--create global flags. One for crafting, one for goal recipe
 	global["nf_info"] = {
 		crafting = false,
@@ -14,18 +14,7 @@ local function on_built(entity, player_index)
 			"crafting-with-fluid",
 			"rocket-building"
 		},
-		banned_items = {
-			"wood"
-		}
 	}
-	--[[
-	local recipe_getter = entity.surface.create_entity({
-		name = "nf-recipe-getter-assembler",
-		position = entity.position,
-		force = entity.force
-	})
-	recipe_getter.operable = false
-	--]]
 	local in_comb_loc = {entity.position.x - 10, entity.position.y - 8}
 	local in_comb = entity.surface.create_entity({
 		name = "nf-input-combinator",
@@ -41,7 +30,7 @@ local function on_built(entity, player_index)
 		force = entity.force,
 	})
 
-	local out_comb_loc = {entity.position.x + 10, entity.position.y - 8}
+	local out_comb_loc = {entity.position.x + 9, entity.position.y - 8}
 	local out_comb = entity.surface.create_entity({
 		name = "nf-output-combinator",
 		position = out_comb_loc,
@@ -49,11 +38,18 @@ local function on_built(entity, player_index)
 	})
 	out_comb.operable = false
 
+	local chest_read_comb_loc = {entity.position.x + 9, entity.position.y - 5}
+	local chest_read_comb = entity.surface.create_entity({
+		name = "nf-output-combinator",
+		position = chest_read_comb_loc,
+		force = entity.force,
+	})
+	chest_read_comb.operable = false
+
 	local chest_loc = {entity.position.x - 0.5, entity.position.y + 9.8}
 	local refund_loader_loc = {entity.position.x - 0.5, entity.position.y + 8.8}
 	local loader_loc = {entity.position.x - 0.5 , entity.position.y + 10}
 	local belt_loc = {entity.position.x - 0.25, entity.position.y + 11}
-
 
 	local refund_loader = entity.surface.create_entity({
 		name="nf-filter-inserter",
@@ -62,10 +58,10 @@ local function on_built(entity, player_index)
 		raise_built = true,
 		direction = defines.direction.south
 	})
-	refund_loader.operable = true
-	refund_loader.rotatable = true
+	refund_loader.operable = false
+	refund_loader.rotatable = false
 	refund_loader.inserter_filter_mode = "whitelist"
-
+	
 	local loader = entity.surface.create_entity({
 		name="nf-fast-inserter",
 		position = loader_loc,
@@ -102,6 +98,12 @@ local function on_built(entity, player_index)
 		target_circuit_id = defines.circuit_connector_id.combinator_output
 	})
 	
+	chest.connect_neighbour({
+		wire = defines.wire_type.green,
+		target_entity = chest_read_comb,
+		source_circuit_id = defines.circuit_connector_id.container,
+		target_circuit_id = defines.circuit_connector_id.constant_combinator
+	})
 
 	--if you don't specify second signal or constant then it just assumes the second signal is a constant of 0.
 	loader.get_or_create_control_behavior().circuit_condition = {
@@ -126,13 +128,14 @@ local function on_built(entity, player_index)
 			name = "signal-each"
 		}	
 	}
-	--global["nf_info"]["recipe_getter"] = recipe_getter
 	global["nf_info"]["rec_comb"] = rec_comb
 	global["nf_info"]["in_comb"] = in_comb
 	global["nf_info"]["output_chest"] = chest
 	global["nf_info"]["output_loader"] = loader
 	global["nf_info"]["internal_loader"] = refund_loader
 	global["nf_info"]["out_comb"] = out_comb
+	global["nf_info"]["belt"] = belt
+	global["nf_info"]["chest_read_comb"] = chest_read_comb
 end
 
 function deepcopy(orig)
@@ -149,45 +152,6 @@ function deepcopy(orig)
         	copy = orig
 	end
 	return copy
-end
-
-local function get_all_inputs(comb) 
-	if comb == nil then 
-		return
-	end
-
-	ccb = comb.get_or_create_control_behavior()
-	cn_red = ccb.get_circuit_network(defines.wire_type.red, defines.circuit_connector_id.combinator_output)
-	cn_green = ccb.get_circuit_network(defines.wire_type.green, defines.circuit_connector_id.combinator_output)
-	local everything = {}
-	if cn_red ~= nil and cn_red.signals ~= nil then
-		for _,sig in pairs(cn_red.signals) do
-			if sig["signal"]["type"] == "item" then
-				if everything[sig["signal"]["name"]] == nil then
-					everything[sig["signal"]["name"]] = sig["count"]
-				else
-					everything[sig["signal"]["name"]] = sig["count"] + everything[sig["signal"]["name"]]
-				end
-			end
-		end
-	end
-	if cn_green ~= nil and cn_green.signals ~= nil then
-		for _,sig in pairs(cn_green.signals) do
-			if sig["signal"]["type"] == "item" then
-				if everything[sig["signal"]["name"]] == nil then
-					everything[sig["signal"]["name"]] = sig["count"]
-				else
-					everything[sig["signal"]["name"]] = sig["count"] + everything[sig["signal"]["name"]]
-				end
-			end
-		end
-	end
-
-	if everything ~= nil then
-		return everything
-	else
-		return {}
-	end
 end
 
 
@@ -228,18 +192,21 @@ local function get_recipe_tree(root_item_name, count)
 	end
 	
 	local recipe = game.recipe_prototypes[root_item_name]
+	log("item "..root_item_name.." category "..recipe.category)
+	log("contains? "..tostring(contains(global["nf_info"]["allowed_categories"], recipe.category)))
 	if recipe ~= nil and recipe.category ~= nil and contains(global["nf_info"]["allowed_categories"], recipe.category) then
 		table.insert(recipe_tree_table, {
 			name = root_item_name,
 			count = count
 		})
 		for _, ingr in pairs(recipe.ingredients) do
-		
-			local diff = count - global["nf_info"]["in_comb"].get_or_create_control_behavior().get_circuit_network(defines.wire_type.red, defines.circuit_connector_id.combinator_output).get_signal({type = "item", name = ingr.name})
-			if diff > 0 then
-				recipe_tree_table = concat_tables(recipe_tree_table, get_recipe_tree(ingr.name, diff * ingr.amount))
+			if ingr.type ~= "fluid" then
+				
+				local diff = count - global["nf_info"]["in_comb"].get_or_create_control_behavior().get_circuit_network(defines.wire_type.red, defines.circuit_connector_id.combinator_output).get_signal({type = "item", name = ingr.name})
+				if diff > 0 then
+					recipe_tree_table = concat_tables(recipe_tree_table, get_recipe_tree(ingr.name, diff * ingr.amount))
+				end
 			end
-		
 		
 		end
 		return recipe_tree_table
@@ -297,19 +264,24 @@ local function every_n_ticks()
 	elseif global["nf_info"]["goal_recipe"] ~= nil and global["nf_info"]["crafting"] == true then
 		local curr_recipe = global["nf_info"]["main_assembler"].get_recipe()
 		log("current goal step is "..global["nf_info"]["current_recipe_goal"].name)
-		--we don't already have enough of the current goal item, need to craft more. If we have enough, we already removed it so next tick we will move on. If the current step is the final goal, make it true
+		--we don't already have enough of the current goal item, need to craft more. If we have enough, we already removed it so next tick we will move on. If the current step is the final goal, make if block true so combinators can output correctly
 		if global["nf_info"]["in_comb"].get_or_create_control_behavior().get_circuit_network(defines.wire_type.red, defines.circuit_connector_id.combinator_output).get_signal({type = "item", name = global["nf_info"]["current_recipe_goal"].name}) - global["nf_info"]["current_recipe_goal"].count < 0 or global["nf_info"]["current_recipe_goal"].name == global["nf_info"]["goal_recipe"].name then
 			if contains(global["nf_info"]["allowed_categories"], curr_recipe.category) then
 				for ind, ingr in pairs(curr_recipe.ingredients) do
-					--set filter inserters to on, internal first
-					global["nf_info"]["internal_loader"].set_filter(ind, ingr.name)
-					--set output_comb to output what is currently needed
-					global["nf_info"]["out_comb"].get_or_create_control_behavior().set_signal(ind, {signal = {type="item", name=ingr.name}, count = ingr.amount})
+					if ingr.type ~= "fluid" then
+						--set filter inserters to on, internal first
+						global["nf_info"]["internal_loader"].set_filter(ind, ingr.name)
+						--set output_comb to output what is currently needed
+						global["nf_info"]["out_comb"].get_or_create_control_behavior().set_signal(ind, {signal = {type="item", name=ingr.name}, count = ingr.amount})
+					end
 				end
 			end
 		end
 		--crafting progress is unreliable since every time one finishes it goes back to 0. If you don't catch it on the right tick you will make too many. Instead check if we've made one yet.
-		if global["nf_info"]["main_assembler"].get_output_inventory().get_item_count(global["nf_info"]["current_recipe_goal"].name) >= global["nf_info"]["current_recipe_goal"].count then
+		local assembler_inv = global["nf_info"]["main_assembler"].get_output_inventory()
+		local chest_inv = global["nf_info"]["output_chest"].get_output_inventory()
+		local total_amount_of_item = assembler_inv.get_item_count(global["nf_info"]["current_recipe_goal"].name) + chest_inv.get_item_count(global["nf_info"]["current_recipe_goal"].name)
+		if total_amount_of_item >= global["nf_info"]["current_recipe_goal"].count then
 			if global["nf_info"]["current_recipe_goal"].name == global["nf_info"]["goal_recipe"].name then
 				clean_up()
 				return
@@ -318,11 +290,8 @@ local function every_n_ticks()
 			log("next goal is "..tostring(next_goal))
 			if next_goal ~= nil then
 				global["nf_info"]["current_recipe_goal"] = deepcopy(next_goal)
-				log("next goal is "..next_goal.name)
 				local inserter_items = global["nf_info"]["internal_loader"].held_stack
 				if inserter_items ~= nil and inserter_items.valid_for_read then
-					log(inserter_items)
-					log(inserter_items.name)
 					global["nf_info"]["output_chest"].get_output_inventory().insert({name = inserter_items.name, count = inserter_items.count})
 					inserter_items.clear()
 				end
@@ -331,14 +300,73 @@ local function every_n_ticks()
 					global["nf_info"]["output_chest"].get_output_inventory().insert({name = item_name, count = item_count})
 				end
 			end
+		else
+			--prevent the inserter from clogging
+			local inserter_items = global["nf_info"]["internal_loader"].held_stack
+			if inserter_items ~= nil and inserter_items.valid_for_read then
+				global["nf_info"]["output_chest"].get_output_inventory().insert({name = inserter_items.name, count = inserter_items.count})
+				inserter_items.clear()
+			end
 		end
+		if assembler_inv.get_item_count(global["nf_info"]["current_recipe_goal"].name) >= 1 then -- game.item_prototypes[global["nf_info"]["current_recipe_goal"].name].stack_size then
+			--prevent the assembler becoming clogged
+			local spilled_items = global["nf_info"]["main_assembler"].set_recipe(nil)
+			for item_name, item_count in pairs(spilled_items) do
+				global["nf_info"]["output_chest"].get_output_inventory().insert({name = item_name, count = item_count})
+			end
+			global["nf_info"]["main_assembler"].set_recipe(global["nf_info"]["current_recipe_goal"].name)
+		end
+	end
+end
+
+
+
+local function on_destroy(entity) 
+	local inserter_items = global["nf_info"]["internal_loader"].held_stack
+	if inserter_items ~= nil and inserter_items.valid_for_read then
+		global["nf_info"]["output_chest"].get_output_inventory().insert({name = inserter_items.name, count = inserter_items.count})
+		inserter_items.clear()
+	end
+	for name, count in pairs(global["nf_info"]["main_assembler"].get_output_inventory().get_contents()) do
+		entity.surface.spill_item_stack(entity.position, {name = name, count = count}, false, entity.force, false)
+	end
+	for name, count in pairs(global["nf_info"]["output_chest"].get_output_inventory().get_contents()) do
+		entity.surface.spill_item_stack(entity.position, {name = name, count = count}, false, entity.force, false)
+	end
+	if global["nf_info"] ~= nil then
+		global["nf_info"]["main_assembler"].destroy()
+		global["nf_info"]["rec_comb"].destroy()
+		global["nf_info"]["out_comb"].destroy()
+		global["nf_info"]["in_comb"].destroy()
+		global["nf_info"]["output_loader"].destroy()
+		global["nf_info"]["output_chest"].destroy()
+		global["nf_info"]["internal_loader"].destroy()
+		global["nf_info"]["belt"].destroy({raise_destroy = true})
+		global["nf_info"]["chest_read_comb"].destroy()
+		global["nf_info"] = nil
 	end
 end
 
 script.on_event(defines.events.on_built_entity, 
 	function(event)
 		if event.created_entity.name == "nf-assembler" then
-			on_built(event.created_entity, event.player_index)
+			on_built(event.created_entity)
+		end
+	end
+)
+
+script.on_event(defines.events.on_robot_built_entity, 
+	function(event)
+		if event.created_entity.name == "nf-assembler" then
+			on_built(event.created_entity)
+		end
+	end
+)
+
+script.on_event(defines.events.script_raised_built, 
+	function(event)
+		if event.entity.name == "nf-assembler" then
+			on_built(event.created_entity)
 		end
 	end
 )
@@ -346,5 +374,37 @@ script.on_event(defines.events.on_built_entity,
 script.on_nth_tick(10, 
 	function(nth_tick_event_data)
 		every_n_ticks()
+	end
+)
+
+script.on_event(defines.events.script_raised_destroy,
+	function(event)
+		if event.entity.name == "nf-assembler" then
+			on_destroy(event.entity)
+		end
+	end
+)
+
+script.on_event(defines.events.on_player_mined_entity,
+	function(event)
+		if event.entity.name == "nf-assembler" then
+			on_destroy(event.entity)
+		end
+	end
+)
+
+script.on_event(defines.events.on_robot_mined_entity,
+	function(event)
+		if event.entity.name == "nf-assembler" then
+			on_destroy(event.entity)
+		end
+	end
+)
+
+script.on_event(defines.events.on_entity_died,
+	function(event)
+		if event.entity.name == "nf-assembler" then
+			on_destroy(event.entity)
+		end
 	end
 )

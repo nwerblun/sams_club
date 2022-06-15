@@ -35,6 +35,6 @@ chest.picture = {
 chest.draw_circuit_wires = false
 chest.circuit_wire_max_distance = 50
 chest.selection_priority = 51
---chest.selection_box = {{0,0}, {0,0}}
+chest.selection_box = {{0,0}, {0,0}}
 data:extend({chest})
 

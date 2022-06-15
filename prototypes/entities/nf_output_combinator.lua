@@ -12,6 +12,7 @@ nf_output_combinator.flags = {
 	"not-flammable",
 	"not-upgradable",
 }
+nf_output_combinator.minable = nil
 nf_output_combinator.circuit_wire_max_distance = 50
 nf_output_combinator.remove_decoratives = "false"
 nf_output_combinator.collision_mask = {}

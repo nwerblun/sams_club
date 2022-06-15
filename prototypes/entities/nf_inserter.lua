@@ -4,7 +4,7 @@
 local NOTHING_PICTURE = "__nano-factory__/graphics/nf_nothing.png"
 local nf_inserter = table.deepcopy(data.raw["inserter"]["fast-inserter"])
 nf_inserter.name = "nf-fast-inserter"
-nf_inserter.rotation_speed = 1.0
+nf_inserter.rotation_speed = 10000.0
 nf_inserter.pickup_location = {0, 0.2}
 nf_inserter.flags =  {
 	"placeable-off-grid",
@@ -22,7 +22,7 @@ nf_inserter.energy_per_movement = "0KJ"
 nf_inserter.energy_per_rotation = "0KJ"
 nf_inserter.energy_source = {type = "void"}
 nf_inserter.working_sound = nil
---nf_inserter.selection_box = {{0,0}, {0,0}}
+nf_inserter.selection_box = {{0,0}, {0,0}}
 nf_inserter.next_upgrade = nil
 nf_inserter.minable = nil
 nf_inserter.collision_mask = {}

@@ -18,6 +18,7 @@ nf_input_combinator.remove_decoratives = "false"
 nf_input_combinator.collision_mask = {}
 nf_input_combinator.item_slot_count = 1
 nf_input_combinator.selection_priority = 51
+nf_input_combinator.minable = nil
 nf_input_combinator.placeable_by = {item = "nano-factory", count = 0}
 nf_input_combinator.energy_source = {type = "void"}
 data:extend({nf_input_combinator})

@@ -1,11 +1,9 @@
 data:extend({
 	{
-		--TODO: Fix recipe and make enabled false
 		type = "recipe",
 		name = "nano-factory",
-		enabled = "true",
-		--TODO: Determine a better recipe
-		ingredients = {}, --{{"iron-plate", 3}},
+		enabled = "false",
+		ingredients = {{"ultimate-belt", 1}, {"assembling-machine-3", 4}, {"stack-filter-inserter", 4}, {"fcpu", 1}, {"steel-beam", 100}, {"concrete", 500}},
 		result = "nano-factory"	
 	}
 })

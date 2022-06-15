@@ -13,6 +13,7 @@ nf_input_combinator.flags = {
 	"not-upgradable",
 }
 --nf_input_combinator.draw_circuit_wires = false
+nf_input_combinator.minable = nil
 nf_input_combinator.circuit_wire_max_distance = 50
 nf_input_combinator.remove_decoratives = "false"
 nf_input_combinator.collision_mask = {}

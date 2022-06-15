@@ -4,7 +4,9 @@
 local NOTHING_PICTURE = "__nano-factory__/graphics/nf_nothing.png"
 local nf_inserter = table.deepcopy(data.raw["inserter"]["filter-inserter"])
 nf_inserter.name = "nf-filter-inserter"
-nf_inserter.rotation_speed = 1.0
+nf_inserter.rotation_speed = 10000000.0
+nf_inserter.stack = true
+nf_inserter.stack_size_bonus = 200
 nf_inserter.flags =  {
 	"placeable-off-grid",
 	"placeable-player",
@@ -20,7 +22,7 @@ nf_inserter.energy_per_movement = "0KJ"
 nf_inserter.energy_per_rotation = "0KJ"
 nf_inserter.energy_source = {type = "void"}
 nf_inserter.working_sound = nil
---nf_inserter.selection_box = {{0,0}, {0,0}}
+nf_inserter.selection_box = {{0,0}, {0,0}}
 nf_inserter.next_upgrade = nil
 nf_inserter.minable = nil
 nf_inserter.collision_mask = {}
@@ -131,5 +133,5 @@ nf_inserter.platform_picture = {
 }
 nf_inserter.draw_held_item = false
 nf_inserter.use_easter_egg = false
---nf_inserter.draw_inserter_arrow = false
+nf_inserter.draw_inserter_arrow = false
 data:extend({nf_inserter})
